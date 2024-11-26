@@ -10,6 +10,9 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 # Feature scaling libraries
 from sklearn.preprocessing import RobustScaler, StandardScaler, MinMaxScaler
 
+# =====================================================================Functions for data pre-processing========================================================================
+
+## Date conversion function
 def change_data_type(data, column, target_type, format=None):
     if target_type == 'datetime':
         data[column] = pd.to_datetime(data[column], format=format, errors='coerce')
@@ -17,12 +20,15 @@ def change_data_type(data, column, target_type, format=None):
         data[column] = data[column].astype(target_type, errors='ignore')
     return data
 
+## Impute missing values function
 def impute_missing_values(data, columns):
     return data[columns].fillna(data[columns].median())
 
+## Drop columns function
 def drop_columns(data, columns):
     return data.drop(columns=columns)
 
+## Handle outliers function
 def filter_outliers(data, col_series):
     # Boolean mask for rows without outliers
     filtered_entries = np.array([True] * len(data))
@@ -41,6 +47,7 @@ def filter_outliers(data, col_series):
     
     return data[filtered_entries]
 
+## Feature engineering function
 def feature_engineering(data):
 
     # Age
@@ -79,6 +86,8 @@ def feature_engineering(data):
     data['CVR'].fillna(0, inplace=True)
     data['CVR'].replace([np.inf, -np.inf], 0, inplace=True)
 
+
+## Feature encoding function
 def feature_encoding(data, degree_order=None, age_group_order=None, marital_status_order=None):
     # Create a copy of the input DataFrame to avoid modifying the original
     df_preprocessed = data.copy()
@@ -170,6 +179,7 @@ def feature_encoding(data, degree_order=None, age_group_order=None, marital_stat
 
     return df_encoded
 
+## Feature scaling function
 def feature_scaling(data):
     """
     Scale features using appropriate scaling methods based on their distributions.
