@@ -233,7 +233,7 @@ def feature_scaling(data):
         'Membership_Duration'  # Though multimodal, it represents actual time periods
     ]
     
-    # Features to skip scaling:
+    ## Features to skip scaling:
     # Binary categorical (0/1):
     # - AcceptedCmp1, AcceptedCmp2, AcceptedCmp3, AcceptedCmp4, AcceptedCmp5
     # - Response
@@ -244,26 +244,23 @@ def feature_scaling(data):
     # - Age_Group
     # - Kidhome, Teenhome, Num_Child (Small discrete values 0,1,2,3 representing counts, scaling might unnecessarily distort their interpretability in the clustering process)
 
-    # Apply log transformation (log1p to handle zeros)
-    for feature in log_transform_features:
-        if feature in df_preprocessed.columns:
-            df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
-
-    # Scale log-transformed features
+    # Apply log transformation and scale
     if log_transform_features:
-        # You might still want to scale after log transformation to standardize the range
+        for feature in log_transform_features:
+            if feature in df_preprocessed.columns:
+                df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
         df_preprocessed[log_transform_features] = standard_scaler.fit_transform(df_preprocessed[log_transform_features])
-    
-    # Scale monetary features
+
+    # Scale skewed outlier features
     if skewed_outliers_features:
         df_preprocessed[skewed_outliers_features] = robust_scaler.fit_transform(df_preprocessed[skewed_outliers_features])
-    
+
     # Scale count-based features
     if count_features:
         df_preprocessed[count_features] = minmax_scaler.fit_transform(df_preprocessed[count_features])
-    
+
     # Scale normally distributed features
     if standard_features:
         df_preprocessed[standard_features] = standard_scaler.fit_transform(df_preprocessed[standard_features])
-    
+
     return df_preprocessed
