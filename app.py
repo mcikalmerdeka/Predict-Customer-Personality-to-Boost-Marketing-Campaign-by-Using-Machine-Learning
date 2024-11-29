@@ -25,6 +25,36 @@ from preprocessing import (
 st.set_page_config(page_title="Customer Segmentation App", layout="wide")
 st.title("Customer Segmentation Analysis")
 
+# Add information about the app
+with st.expander("About this app"):
+    st.write("""
+    - This app performs customer segmentation using K-means clustering. 
+    - The dataset used in this app is a marketing campaign dataset from a company that sells products to customers.
+    - The goal of this app is to help the company to understand their customers better and to develop more effective marketing strategies.
+    
+    - To use this app, you can either upload your own dataset or use the source data directly.
+        - If you choose to upload your own dataset, please ensure that your dataset has the same structure as the source data.
+        - If you choose to use the source data directly, you can select the 'Use Source Data Directly' option and it will load the source data from gdrive.
+    
+    - After selecting the input type, you can follow the preprocessing steps in the sidebar on the left to preprocess your data.
+    - You may see some default values for the preprocessing steps, you can keep it or change it but as for now, it is set to the default values.
+                      
+    - The preprocessing steps are:
+        1. Data type conversion
+        2. Missing values imputation
+        3. Outlier handling
+        4. Feature engineering (including Age Group categorization)
+        5. Feature encoding
+        6. Column dropping
+        7. Feature scaling
+        8. PCA transformation
+    
+    - This app will then perform clustering using K-means clustering and visualize the results using PCA and the statistical summary of each cluster.
+    
+    - Also this app have feature to predict the customer segment for new data based on the trained model.
+    - To do so, you can input the customer data and the app will predict the customer segment for the new data.
+    """)
+
 # Load pre-trained model
 @st.cache_resource
 def load_model():
@@ -33,12 +63,15 @@ def load_model():
 model = load_model()
 
 # Input type selection
-input_type = st.radio('Select Input Type', ['File Upload', 'Manual Input'])
+input_type = st.radio('Select Input Type', ['File Upload Local', 'Use Source Data Directly'])
+if input_type == 'File Upload Local':
+    st.write("You can download and then upload data locally from the source below:")
+    st.link_button("Download Source Dataset", "https://drive.google.com/file/d/17JjPC-T_QSACwG29or48HpeJATbCPaDg/view?usp=sharing")
 
 # Initialize data variable
 data = None
 
-if input_type == 'File Upload':
+if input_type == 'File Upload Local':
     # File upload
     uploaded_data = st.file_uploader("Choose a CSV file", type="csv")
     
@@ -59,72 +92,29 @@ if input_type == 'File Upload':
 
         except Exception as e:
             st.error(f"Error loading the file: {e}")
+else:
+    st.write("You can use the source data directly by selecting the 'Use Source Data Directly' option.")
+    try:
+        # Link to the file
+        file_url = "https://drive.google.com/uc?id=17JjPC-T_QSACwG29or48HpeJATbCPaDg"
 
-else:  # Manual Input
-    # Provide a sample file upload for reference columns
-    st.subheader("First, upload a reference CSV file")
-    reference_file = st.file_uploader("Choose a reference CSV file", type="csv", key="reference_upload")
-    
-    if reference_file:
-        try:
-            # Load reference data
-            reference_data = pd.read_csv(reference_file, index_col=0)
-            
-            st.subheader("Enter Customer Data")
-            
-            # Create a dictionary to store input values
-            input_data = {}
-            
-            # Dynamically create input fields based on column types
-            for column in reference_data.columns:
-                # Handle different column types
-                if pd.api.types.is_datetime64_any_dtype(reference_data[column]):
-                    # Date input for datetime columns
-                    input_data[column] = st.date_input(f'Enter {column}')
-                
-                elif pd.api.types.is_numeric_dtype(reference_data[column]):
-                    # Number input for numeric columns
-                    col_min = reference_data[column].min()
-                    col_max = reference_data[column].max()
-                    col_mean = reference_data[column].mean()
-                    
-                    input_data[column] = st.number_input(
-                        f'Enter {column}', 
-                        min_value=float(col_min), 
-                        max_value=float(col_max), 
-                        value=float(col_mean),
-                        step=0.1
-                    )
-                
-                elif pd.api.types.is_categorical_dtype(reference_data[column]) or reference_data[column].dtype == 'object':
-                    # Selectbox for categorical/object columns
-                    unique_values = reference_data[column].unique()
-                    input_data[column] = st.selectbox(
-                        f'Select {column}', 
-                        options=list(unique_values)
-                    )
-                
-                else:
-                    # Fallback for any other types
-                    input_data[column] = st.text_input(f'Enter {column}')
-            
-            # Submit button to process the input
-            if st.button('Submit Data'):
-                # Convert input to DataFrame
-                manual_data = pd.DataFrame([input_data])
-                
-                st.subheader("Entered Data")
-                st.dataframe(manual_data)
-                
-                # Create a copy for preprocessing
-                data = manual_data.copy()
+        # Load the CSV into a DataFrame
+        file_data = pd.read_csv(file_url, index_col=0)
 
-        except Exception as e:
-            st.error(f"Error loading the reference file: {e}")
-    else:
-        st.info("Please upload a reference CSV file to see input fields")
+        st.subheader("Raw Data Preview")
+        st.write(file_data.head())
+            
+        # Display data information
+        st.subheader("Data Information")
+        st.write(check_data_information(file_data, file_data.columns))
+            
+        # Create a copy for preprocessing
+        data = file_data.copy()
 
-# Preprocessing steps (only proceed if data is not None)
+    except Exception as e:
+        st.error(f"Error loading the file: {e}")       
+
+# Side bar preprocessing steps (only proceed if data is not None)
 if data is not None:
 
     # Preprocessing steps in sidebar
@@ -270,6 +260,7 @@ if data is not None:
                 status_text.markdown("**Step 4/7:** Performing feature engineering...")
                 if do_feature_engineering:
                     feature_engineering(processed_data, middle_age_threshold, senior_age_threshold)
+                    original_processed_data = processed_data.copy()
                 progress_bar.progress(56)
                 st.success("Feature engineering completed successfully!")
                 st.write("After Feature Engineering:")
@@ -300,10 +291,19 @@ if data is not None:
                 # 7. Feature scaling
                 status_text.markdown("**Step 7/7:** Scaling features...")
                 processed_data = feature_scaling(processed_data)
-                progress_bar.progress(100)
+                progress_bar.progress(90)
                 st.success("Feature scaling completed successfully!")
                 st.write("After Feature Scaling:")
                 st.write(processed_data.head(3))
+
+                # 8. Transform data using PCA
+                pca = PCA(n_components=0.85)  # Keep components that explain percentage of variance
+                processed_data_pca = pca.fit_transform(processed_data)
+                processed_data_pca = pd.DataFrame(processed_data_pca, columns=[f'PC {i+1}' for i in range(processed_data_pca.shape[1])])
+                progress_bar.progress(100)
+                st.success("PCA transformation completed successfully!")
+                st.subheader("Final Preprocessed Data After PCA")
+                st.write(processed_data_pca.head(3))     
 
                 # Add completion message and separator
                 st.markdown("---")  # Horizontal line separator
@@ -317,93 +317,257 @@ if data is not None:
                 5. ✅ Categorical Encoding
                 6. ✅ Column Dropping
                 7. ✅ Feature Scaling
+                8. ✅ PCA Transformation
                 """)
-                st.markdown("---")  # Horizontal line separator
-
-                # Display final results
-                st.subheader("Final Preprocessed Data Preview")
-                st.write(processed_data.head())
-
-                # # Make predictions
-                # status_text.markdown("Making predictions...")
-                # clusters = model.predict(processed_data)
-                # processed_data['Cluster'] = clusters
-
-                # # Show shape of data before and after preprocessing
-                # st.subheader("Data Shape")
-                # col1, col2 = st.columns(2)
-                # with col1:
-                #     st.write("Original Shape:", data.shape)
-                # with col2:
-                #     st.write("Processed Shape:", processed_data.shape)
-
-                # # Cluster Analysis
-                # st.subheader("Cluster Analysis")
-                # col1, col2 = st.columns(2)
-
-                # with col1:
-                #     # Cluster distribution
-                #     st.write("Cluster Distribution")
-                #     fig, ax = plt.subplots()
-                #     processed_data['Cluster'].value_counts().plot(kind='bar')
-                #     plt.title("Distribution of Clusters")
-                #     plt.xlabel("Cluster")
-                #     plt.ylabel("Count")
-                #     st.pyplot(fig)
-
-                # with col2:
-                #     # PCA visualization
-                #     st.write("PCA Visualization")
-                #     pca = PCA(n_components=2)
-                #     pca_result = pca.fit_transform(processed_data.drop('Cluster', axis=1))
-                    
-                #     fig, ax = plt.subplots()
-                #     scatter = plt.scatter(pca_result[:, 0], pca_result[:, 1], 
-                #                        c=processed_data['Cluster'], cmap='viridis')
-                #     plt.colorbar(scatter)
-                #     plt.title("Cluster Visualization (PCA)")
-                #     plt.xlabel("First Principal Component")
-                #     plt.ylabel("Second Principal Component")
-                #     st.pyplot(fig)
-
-                # # Cluster Profiles with Age Group Analysis
-                # st.subheader("Cluster Profiles")
-                # for cluster in processed_data['Cluster'].unique():
-                #     with st.expander(f"Cluster {cluster} Profile"):
-                #         cluster_data = processed_data[processed_data['Cluster'] == cluster]
-                        
-                #         # General statistics
-                #         col1, col2 = st.columns(2)
-                #         with col1:
-                #             st.write(f"Size: {len(cluster_data)} customers")
-                #             st.write("Key Statistics:")
-                #             st.write(cluster_data.describe())
-                        
-                #         with col2:
-                #             if 'Age_Group' in cluster_data.columns:
-                #                 st.write("Age Group Distribution:")
-                #                 age_dist = cluster_data['Age_Group'].value_counts()
-                #                 fig, ax = plt.subplots()
-                #                 age_dist.plot(kind='pie', autopct='%1.1f%%')
-                #                 plt.title(f"Age Groups in Cluster {cluster}")
-                #                 st.pyplot(fig)
+                st.markdown("---")  # Horizontal line separator           
 
             except Exception as e:
                 progress_bar.progress(0)
                 status_text.markdown(f"❌ **Error occurred during preprocessing:**\n\n{str(e)}")
                 st.error(f"An error occurred during preprocessing: {str(e)}")
-
-# Add information about the app
-with st.expander("About this app"):
-    st.write("""
-    This app performs customer segmentation using K-means clustering. The preprocessing steps are:
-    1. Data type conversion
-    2. Missing values imputation
-    3. Outlier handling
-    4. Feature engineering (including Age Group categorization)
-    5. Feature encoding
-    6. Column dropping
-    7. Feature scaling
+        
+    # Cluster Section    
+    st.header("Cluster Section")
     
-    Upload your CSV file and follow the preprocessing steps in the sidebar to begin.
+    # Use the imported model to predict the clusters
+    model.fit(processed_data_pca.values)
+
+    # Assign the cluster to our original dataframe and scaled dataframe
+    processed_data_pca['Clusters'] = model.labels_
+    original_processed_data['Clusters'] = model.labels_
+
+    # Check the original dataframe with assigned cluster for each data
+    st.subheader("Data with Assigned Clusters")
+    st.write(original_processed_data.head(3))
+
+    # Visualization Section
+    st.markdown("---")  # Separator
+    st.header("Cluster Visualization")
+
+    # Create the PCA visualization
+    fig, ax = plt.subplots(figsize=(10, 6))  # Fixed figure size
+    scatter = sns.scatterplot(
+        data=processed_data_pca,
+        x='PC 1',
+        y='PC 2',
+        hue='Clusters',
+        palette='deep',
+        edgecolor='white',
+        alpha=0.7,
+        s=100  # Fixed point size
+    )
+
+    # Improve plot styling
+    plt.title('Customer Segments Visualization (PCA)', pad=20, fontsize=14)
+    plt.xlabel('First Principal Component', fontsize=12)
+    plt.ylabel('Second Principal Component', fontsize=12)
+
+    # Add a legend with a better position
+    plt.legend(title='Clusters', title_fontsize=12, bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Make the plot more streamlit-friendly
+    st.pyplot(fig, use_container_width=True)
+
+    # Add explanation
+    st.markdown("""
+    **Understanding the Cluster Plot:**
+    - Each point represents a customer
+    - Colors indicate different customer segments
+    - Closer points suggest similar customer characteristics
+    - Distance between clusters shows how distinct the segments are
     """)
+
+    # After the plot explanation, add:
+    st.markdown("---")  # Separator
+    st.header("Cluster Statistical Summary")
+
+    # Define important features and their aggregation functions
+    summary_features = [
+        'Total_Acc_Camp', 'NumWebVisitsMonth', 'Income', 
+        'Total_Purchases', 'Total_Spending', 'CVR', 'Clusters'
+    ]
+
+    agg_funcs = {
+        'Total_Acc_Camp': 'sum',
+        'NumWebVisitsMonth': 'sum',
+        'Income': 'mean',
+        'Total_Purchases': 'mean',
+        'Total_Spending': ['mean', 'median'],
+        'CVR': ['mean', 'median', 'count']
+    }
+
+    try:
+        # Calculate statistics
+        result = round(original_processed_data[summary_features].groupby('Clusters').agg(agg_funcs), 2)
+        result.columns = ['_'.join(col).strip() for col in result.columns.values]
+
+        # Rename the count column and add percentage
+        result.rename(columns={'CVR_count': 'Cluster Count'}, inplace=True)
+        result['Cluster Percentage'] = round((result['Cluster Count'] / result['Cluster Count'].sum()) * 100, 2)
+
+        # Display the results with better formatting
+        st.markdown("### Key Metrics by Cluster")
+        st.markdown("""
+        This table shows important statistics for each cluster:
+        - **Campaign Acceptance & Web Visits**: Total accepted campaigns and web visits
+        - **Income & Purchases**: Average income and purchase behavior
+        - **Spending & Conversion**: Mean/median spending and conversion rates
+        - **Cluster Size**: Number and percentage of customers in each cluster
+        """)
+
+        # Display the dataframe with styled formatting exactly as in the notebook
+        st.dataframe(
+            result.style.format({
+                'Total_Acc_Camp': '{:.0f}',
+                'NumWebVisitsMonth': '{:.0f}',
+                'Income_mean': '${:,.2f}',
+                'Total_Purchases_mean': '{:.2f}',
+                'Total_Spending_mean': '${:,.2f}',
+                'Total_Spending_median': '${:,.2f}',
+                'CVR_mean': '{:.2%}',
+                'CVR_median': '{:.2%}',
+                'Cluster Count': '{:.0f}',
+                'Cluster Percentage': '{:.1f}%'
+            })
+        )
+
+    except Exception as e:
+        st.error(f"Error in statistical summary: {str(e)}")
+        st.write("Available columns in DataFrame:", original_processed_data[summary_features].columns.tolist())
+
+    # After the cluster statistical summary section, add:
+    st.markdown("---")
+    st.header("Predict New Customer Segment")
+
+    # Use the already uploaded data as reference
+    if uploaded_data is not None:
+        try:
+            st.subheader("Enter Customer Data")
+            
+            # Create a dictionary to store input values
+            prediction_input = {}
+            
+            # Create two columns for better layout
+            col1, col2 = st.columns(2)
+            
+            # Split columns into two groups for layout
+            all_columns = file_data.columns.tolist()
+            mid_point = len(all_columns) // 2
+            
+            with col1:
+                # First half of columns
+                for column in all_columns[:mid_point]:
+                    if pd.api.types.is_datetime64_any_dtype(file_data[column]):
+                        prediction_input[column] = st.date_input(f'Enter {column}')
+                    
+                    elif pd.api.types.is_numeric_dtype(file_data[column]):
+                        col_min = file_data[column].min()
+                        col_max = file_data[column].max()
+                        col_mean = file_data[column].mean()
+                        
+                        prediction_input[column] = st.number_input(
+                            f'Enter {column}',
+                            min_value=float(col_min),
+                            max_value=float(col_max),
+                            value=float(col_mean),
+                            step=0.1
+                        )
+                    
+                    elif pd.api.types.is_categorical_dtype(file_data[column]) or file_data[column].dtype == 'object':
+                        unique_values = file_data[column].unique()
+                        prediction_input[column] = st.selectbox(
+                            f'Select {column}',
+                            options=list(unique_values)
+                        )
+                    
+                    else:
+                        prediction_input[column] = st.text_input(f'Enter {column}')
+            
+            with col2:
+                # Second half of columns
+                for column in all_columns[mid_point:]:
+                    if pd.api.types.is_datetime64_any_dtype(file_data[column]):
+                        prediction_input[column] = st.date_input(f'Enter {column}')
+                    
+                    elif pd.api.types.is_numeric_dtype(file_data[column]):
+                        col_min = file_data[column].min()
+                        col_max = file_data[column].max()
+                        col_mean = file_data[column].mean()
+                        
+                        prediction_input[column] = st.number_input(
+                            f'Enter {column}',
+                            min_value=float(col_min),
+                            max_value=float(col_max),
+                            value=float(col_mean),
+                            step=0.1
+                        )
+                    
+                    elif pd.api.types.is_categorical_dtype(file_data[column]) or file_data[column].dtype == 'object':
+                        unique_values = file_data[column].unique()
+                        prediction_input[column] = st.selectbox(
+                            f'Select {column}',
+                            options=list(unique_values)
+                        )
+                    
+                    else:
+                        prediction_input[column] = st.text_input(f'Enter {column}')
+
+            # Add predict button
+            if st.button('Predict Segment'):
+                try:
+                    # Convert input to DataFrame
+                    input_df = pd.DataFrame([prediction_input])
+                    
+                    # Show the input data
+                    st.subheader("Input Data")
+                    st.write(input_df)
+                    
+                    # Create a copy for preprocessing
+                    processed_input = input_df.copy()
+                    
+                    # Apply the same preprocessing steps
+                    if 'Dt_Customer' in processed_input.columns:
+                        processed_input['Dt_Customer'] = pd.to_datetime(processed_input['Dt_Customer'], format='%Y-%m-%d')
+                    
+                    # Apply feature engineering
+                    feature_engineering(processed_input, middle_age_threshold, senior_age_threshold)
+                    
+                    # Apply encoding
+                    processed_input = feature_encoding(processed_input, columns_to_encode)
+                    
+                    # Drop unnecessary columns
+                    processed_input = drop_columns(processed_input, columns_to_drop)
+                    
+                    # Apply scaling
+                    processed_input = feature_scaling(processed_input)
+                    
+                    # Apply PCA transformation
+                    input_pca = pca.transform(processed_input)
+                    
+                    # Make prediction
+                    cluster = model.predict(input_pca)[0]
+                    
+                    # Display result with styling
+                    st.success(f"### Predicted Customer Segment: {cluster}")
+                    
+                    # Show cluster characteristics
+                    st.subheader(f"Cluster {cluster} Characteristics")
+                    cluster_stats = result.loc[cluster]
+                    
+                    # Display key metrics for the predicted cluster
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Average Income", f"${cluster_stats['Income_mean']:,.2f}")
+                    with col2:
+                        st.metric("Average Spending", f"${cluster_stats['Total_Spending_mean']:,.2f}")
+                    with col3:
+                        st.metric("Conversion Rate", f"{cluster_stats['CVR_mean']:.1%}")
+                    
+                except Exception as e:
+                    st.error(f"Error in prediction: {str(e)}")
+                    st.write("Please ensure all required fields are filled correctly.")
+        
+        except Exception as e:
+            st.error(f"Error setting up prediction form: {str(e)}")
+    else:
+        st.info("Please upload a data file first to enable prediction")
