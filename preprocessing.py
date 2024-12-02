@@ -244,89 +244,81 @@ def feature_encoding(data, columns_to_encode):
         raise e
 
 ## Feature scaling function
-def feature_scaling(data):
+def feature_scaling(data, scalers=None, fit=True):
     """
     Scale features using appropriate scaling methods based on their distributions.
-    Applies log transformation to heavily skewed features before scaling.
+    
+    Parameters:
+    - data: DataFrame to scale
+    - scalers: Dictionary of pre-fitted scalers (for transform only)
+    - fit: Boolean indicating whether to fit_transform (True) or just transform (False)
+    
+    Returns:
+    - Scaled DataFrame and dictionary of scalers
     """
     # Create copies to avoid modifying original data
     df_preprocessed = data.copy()
     
-    # Initialize scalers
-    robust_scaler = RobustScaler(quantile_range=(5, 95))
-    standard_scaler = StandardScaler()
-    minmax_scaler = MinMaxScaler()
-
-    # Features that need log transformation (heavily skewed even after outlier handling)
+    # Initialize or use provided scalers
+    if scalers is None and fit:
+        scalers = {
+            'robust': RobustScaler(quantile_range=(5, 95)),
+            'standard': StandardScaler(),
+            'minmax': MinMaxScaler()
+        }
+    elif scalers is None and not fit:
+        raise ValueError("Scalers must be provided when fit=False")
+    
+    # Define feature groups
     log_transform_features = [
-        'MntCoke',
-        'MntFruits',
-        'MntMeatProducts',
-        'MntFishProducts',
-        'MntSweetProducts',
-        'MntGoldProds',
-        'Total_Spending',
-        'CVR'
+        'MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts',
+        'MntSweetProducts', 'MntGoldProds', 'Total_Spending', 'CVR'
     ]
     
-    # Other monetary features (highly skewed with long tails) that might not need log transform (if outliers handled) - RobustScaler
-    skewed_outliers_features = []
-    
-    # Count features (discrete but representing actual quantities) - MinMaxScaler
     count_features = [
-        'NumWebVisitsMonth',
-        'NumDealsPurchases',
-        'NumWebPurchases',
-        'NumCatalogPurchases',
-        'NumStorePurchases',
-        'Total_Purchases'
+        'NumWebVisitsMonth', 'NumDealsPurchases', 'NumWebPurchases',
+        'NumCatalogPurchases', 'NumStorePurchases', 'Total_Purchases'
     ]
     
-    # Features with more normal-like distributions - StandardScaler
     standard_features = [
-        'Income',
-        'Age',
-        'Recency',
-        'Membership_Duration'  # Though multimodal, it represents actual time periods
+        'Income', 'Age', 'Recency', 'Membership_Duration'
     ]
     
-    # Convert all numeric columns to float before transformation
+    # Convert all numeric columns to float
     numeric_columns = df_preprocessed.select_dtypes(include=['int64', 'float64']).columns
     for col in numeric_columns:
         df_preprocessed[col] = df_preprocessed[col].astype(float)
     
     # Apply log transformation and scale
-    if log_transform_features:
-        available_log_features = [col for col in log_transform_features if col in df_preprocessed.columns]
-        if available_log_features:
-            print(f"Applying log transformation to: {available_log_features}")
-            df_preprocessed[available_log_features] = df_preprocessed[available_log_features].astype(float)
-            for feature in available_log_features:
-                df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
-            df_preprocessed[available_log_features] = standard_scaler.fit_transform(df_preprocessed[available_log_features])
-
-    # Scale skewed outlier features
-    if skewed_outliers_features:
-        available_features = [col for col in skewed_outliers_features if col in df_preprocessed.columns]
-        if available_features:
-            print(f"Applying robust scaling to: {available_features}")
-            df_preprocessed[available_features] = df_preprocessed[available_features].astype(float)
-            df_preprocessed[available_features] = robust_scaler.fit_transform(df_preprocessed[available_features])
+    available_log_features = [col for col in log_transform_features if col in df_preprocessed.columns]
+    if available_log_features:
+        print(f"Processing log transform features: {available_log_features}")
+        df_preprocessed[available_log_features] = df_preprocessed[available_log_features].astype(float)
+        for feature in available_log_features:
+            df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
+        if fit:
+            df_preprocessed[available_log_features] = scalers['standard'].fit_transform(df_preprocessed[available_log_features])
+        else:
+            df_preprocessed[available_log_features] = scalers['standard'].transform(df_preprocessed[available_log_features])
 
     # Scale count-based features
-    if count_features:
-        available_features = [col for col in count_features if col in df_preprocessed.columns]
-        if available_features:
-            print(f"Applying minmax scaling to: {available_features}")
-            df_preprocessed[available_features] = df_preprocessed[available_features].astype(float)
-            df_preprocessed[available_features] = minmax_scaler.fit_transform(df_preprocessed[available_features])
+    available_count_features = [col for col in count_features if col in df_preprocessed.columns]
+    if available_count_features:
+        print(f"Processing count features: {available_count_features}")
+        df_preprocessed[available_count_features] = df_preprocessed[available_count_features].astype(float)
+        if fit:
+            df_preprocessed[available_count_features] = scalers['minmax'].fit_transform(df_preprocessed[available_count_features])
+        else:
+            df_preprocessed[available_count_features] = scalers['minmax'].transform(df_preprocessed[available_count_features])
 
     # Scale normally distributed features
-    if standard_features:
-        available_features = [col for col in standard_features if col in df_preprocessed.columns]
-        if available_features:
-            print(f"Applying standard scaling to: {available_features}")
-            df_preprocessed[available_features] = df_preprocessed[available_features].astype(float)
-            df_preprocessed[available_features] = standard_scaler.fit_transform(df_preprocessed[available_features])
+    available_standard_features = [col for col in standard_features if col in df_preprocessed.columns]
+    if available_standard_features:
+        print(f"Processing standard features: {available_standard_features}")
+        df_preprocessed[available_standard_features] = df_preprocessed[available_standard_features].astype(float)
+        if fit:
+            df_preprocessed[available_standard_features] = scalers['standard'].fit_transform(df_preprocessed[available_standard_features])
+        else:
+            df_preprocessed[available_standard_features] = scalers['standard'].transform(df_preprocessed[available_standard_features])
 
-    return df_preprocessed
+    return df_preprocessed, scalers

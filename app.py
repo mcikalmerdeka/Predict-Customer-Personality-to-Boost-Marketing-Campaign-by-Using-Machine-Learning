@@ -26,7 +26,7 @@ st.set_page_config(page_title="Customer Segmentation App", layout="wide")
 st.title("Customer Segmentation Analysis")
 
 # Add information about the app
-with st.expander("About this app"):
+with st.expander("**Read Instruction First: About this app**"):
     st.write("""
     - This app performs customer segmentation using K-means clustering. 
     - The dataset used in this app is a marketing campaign dataset from a company that sells products to customers.
@@ -290,11 +290,14 @@ if data is not None:
                 
                 # 7. Feature scaling
                 status_text.markdown("**Step 7/7:** Scaling features...")
-                processed_data = feature_scaling(processed_data)
+                processed_data, scalers = feature_scaling(processed_data)
                 progress_bar.progress(90)
                 st.success("Feature scaling completed successfully!")
                 st.write("After Feature Scaling:")
                 st.write(processed_data.head(3))
+
+                # Store scalers in session state
+                st.session_state['scalers'] = scalers
 
                 # 8. Transform data using PCA
                 pca = PCA(n_components=0.85)
@@ -304,6 +307,9 @@ if data is not None:
                 st.success("PCA transformation completed successfully!")
                 st.subheader("Final Preprocessed Data After PCA")
                 st.write(processed_data_pca.head(3))
+
+                # Store the processed data in session state
+                st.session_state['processed_data_pca'] = processed_data_pca
 
                 # Store preprocessing parameters in session state
                 st.session_state['preprocessing_params'] = {
@@ -448,7 +454,7 @@ if data is not None:
             - **Cluster Size**: Number and percentage of customers in each cluster
             """)
 
-            # Display the dataframe with styled formatting exactly as in the notebook
+            # Display the dataframe statistical summary
             st.dataframe(
                 result.style.format({
                     'Total_Acc_Camp': '{:.0f}',
@@ -457,8 +463,8 @@ if data is not None:
                     'Total_Purchases_mean': '{:.2f}',
                     'Total_Spending_mean': '${:,.2f}',
                     'Total_Spending_median': '${:,.2f}',
-                    'CVR_mean': '{:.2%}',
-                    'CVR_median': '{:.2%}',
+                    'CVR_mean (%)': '{:.2f}%',
+                    'CVR_median (%)': '{:.2f}%',
                     'Cluster Count': '{:.0f}',
                     'Cluster Percentage': '{:.1f}%'
                 })
@@ -560,7 +566,7 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                     input_df = pd.DataFrame([prediction_input])
                     
                     # Show the input data
-                    st.subheader("Input Data")
+                    st.subheader("New Customer Input Data")
                     st.write(input_df)
                     
                     # Create a copy for preprocessing
@@ -570,47 +576,142 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                     params = st.session_state['preprocessing_params']
                     
                     # 1. Handle dates
-                    if 'Dt_Customer' in processed_input.columns:
-                        processed_input['Dt_Customer'] = pd.to_datetime(processed_input['Dt_Customer'])
+                    for date_col in params['date_columns']:
+                        if date_col in processed_input.columns:
+                            processed_input[date_col] = pd.to_datetime(processed_input[date_col], format=params['date_format'])
 
-                    # 2. Feature engineering (using stored thresholds)
-                    if 'Year_Birth' in processed_input.columns:
+                    # 2. Feature engineering
+                    if 'Dt_Customer' in processed_input.columns:
                         current_year = datetime.now().year
+                        
+                        # Age calculation
                         processed_input['Age'] = current_year - processed_input['Year_Birth']
                         
-                        # Age group using stored thresholds
-                        conditions = [
-                            processed_input['Age'] < params['middle_age_threshold'],
-                            processed_input['Age'] < params['senior_age_threshold']
-                        ]
-                        choices = ['Young Adult', 'Middle Adult', 'Senior Adult']
-                        processed_input['Age_Group'] = np.select(conditions, choices[:2], default=choices[2])
+                        # Age group
+                        def custom_age_group(x):
+                            if x >= params['senior_age_threshold']:
+                                return 'Senior Adult'
+                            elif x >= params['middle_age_threshold']:
+                                return 'Middle Adult'
+                            else:
+                                return 'Young Adult'
+                        
+                        processed_input['Age_Group'] = processed_input['Age'].apply(custom_age_group)
+                        
+                        # Membership Duration
+                        processed_input['Membership_Duration'] = current_year - processed_input['Dt_Customer'].dt.year
+                        
+                        # Total accepted campaigns
+                        campaign_cols = [col for col in processed_input.columns if 'AcceptedCmp' in col]
+                        processed_input['Total_Acc_Camp'] = processed_input[campaign_cols].sum(axis=1).astype('int64')
+                        
+                        # Total spending
+                        spending_cols = ['MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 'MntSweetProducts', 'MntGoldProds']
+                        processed_input['Total_Spending'] = processed_input[spending_cols].sum(axis=1).astype('int64')
+                        
+                        # Total purchases
+                        purchase_cols = ['NumDealsPurchases', 'NumWebPurchases', 'NumCatalogPurchases', 'NumStorePurchases']
+                        processed_input['Total_Purchases'] = processed_input[purchase_cols].sum(axis=1).astype('int64')
+                        
+                        # Conversion Rate
+                        processed_input['CVR'] = np.round(processed_input['Total_Purchases'] / processed_input['NumWebVisitsMonth'], 2)
+                        processed_input['CVR'].fillna(0, inplace=True)
+                        processed_input['CVR'].replace([np.inf, -np.inf], 0, inplace=True)
 
-                    # 3. One-hot encoding using stored categories
-                    for col in params['columns_to_encode']:
-                        if col in processed_input.columns:
-                            # Create dummy variables with known categories
-                            dummies = pd.get_dummies(processed_input[col], prefix=col)
-                            
-                            # Add missing columns (categories not present in input data)
-                            expected_columns = [f"{col}_{cat}" for cat in params['categorical_mappings'][col]]
-                            for column in expected_columns:
-                                if column not in dummies.columns:
-                                    dummies[column] = 0
-                            
-                            # Remove original column and add dummies
-                            processed_input = processed_input.drop(columns=[col])
-                            processed_input = pd.concat([processed_input, dummies], axis=1)
+                    st.subheader("After Feature Engineering")
+                    st.write(processed_input)
+
+                    # 3. Feature encoding
+                    try:
+                        # Handle ordinal encoding for Education
+                        if 'Education' in processed_input.columns:
+                            degree_order = ['SMA', 'D3', 'S1', 'S2', 'S3']
+                            education_map = {deg: idx for idx, deg in enumerate(degree_order)}
+                            processed_input['Education'] = processed_input['Education'].map(education_map)
+
+                        # Handle ordinal encoding for Age_Group
+                        if 'Age_Group' in processed_input.columns:
+                            age_group_order = ['Young Adult', 'Middle Adult', 'Senior Adult']
+                            age_group_map = {group: idx for idx, group in enumerate(age_group_order)}
+                            processed_input['Age_Group'] = processed_input['Age_Group'].map(age_group_map)
+
+                        # Handle one-hot encoding for Marital_Status with drop_first
+                        if 'Marital_Status' in processed_input.columns:
+                            marital_dummies = pd.get_dummies(processed_input['Marital_Status'], prefix='Marital_Status')
+                            # Ensure all expected dummy columns are present
+                            expected_marital_status = ['Marital_Status_Cerai', 'Marital_Status_Duda', 'Marital_Status_Janda', 
+                                                       'Marital_Status_Lajang', 'Marital_Status_Menikah']
+                            for column in expected_marital_status:
+                                if column not in marital_dummies.columns:
+                                    marital_dummies[column] = 0
+                            # Drop original column and add encoded columns
+                            processed_input = processed_input.drop(columns=['Marital_Status'])
+                            processed_input = pd.concat([processed_input, marital_dummies[expected_marital_status]], axis=1)
+
+                        # Ensure all expected columns are present
+                        expected_columns = st.session_state['original_processed_data'].columns
+                        for col in expected_columns:
+                            if col not in processed_input.columns:
+                                processed_input[col] = 0
+
+                        # Reorder columns to match training data
+                        processed_input = processed_input[expected_columns]
+
+                    except Exception as e:
+                        st.error(f"Error in feature encoding: {str(e)}")
+                        st.write("Debug information:")
+                        st.write("Current columns:", processed_input.columns.tolist())
+                        st.write("Expected columns:", expected_columns.tolist())
+                    
+                    st.subheader("After Feature Encoding")
+                    st.write(processed_input)
+
+                    # 5. Feature scaling
+                    try:
+                        # Apply log transformation and scale
+                        log_transform_features = [
+                            'MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 
+                            'MntSweetProducts', 'MntGoldProds', 'Total_Spending', 'CVR'
+                        ]
+                        if log_transform_features:
+                            available_log_features = [col for col in log_transform_features if col in processed_input.columns]
+                            if available_log_features:
+                                for feature in available_log_features:
+                                    processed_input[feature] = np.log1p(processed_input[feature])
+                                processed_input[available_log_features] = st.session_state['scalers']['standard'].transform(processed_input[available_log_features])
+
+                        # Scale count-based features
+                        count_features = [
+                            'NumWebVisitsMonth', 'NumDealsPurchases', 'NumWebPurchases', 
+                            'NumCatalogPurchases', 'NumStorePurchases', 'Total_Purchases'
+                        ]
+                        if count_features:
+                            available_features = [col for col in count_features if col in processed_input.columns]
+                            if available_features:
+                                processed_input[available_features] = st.session_state['scalers']['minmax'].transform(processed_input[available_features])
+
+                        # Scale normally distributed features
+                        standard_features = [
+                            'Income', 'Age', 'Recency', 'Membership_Duration'
+                        ]
+                        if standard_features:
+                            available_features = [col for col in standard_features if col in processed_input.columns]
+                            if available_features:
+                                processed_input[available_features] = st.session_state['scalers']['standard'].transform(processed_input[available_features])
+
+                    except Exception as e:
+                        st.error(f"Error in feature scaling: {str(e)}")
+                        st.write("Debug information:")
+                        st.write("Current columns:", processed_input.columns.tolist())
 
                     # 4. Drop unnecessary columns
                     processed_input = processed_input.drop(columns=params['columns_to_drop'], errors='ignore')
 
-                    # 5. Feature scaling using stored parameters
-                    for col in processed_input.columns:
-                        if col in params['scaling_params']['mean']:
-                            processed_input[col] = (processed_input[col] - params['scaling_params']['mean'][col]) / params['scaling_params']['std'][col]
+                    # Show preprocessed input
+                    st.subheader("Preprocessed Input Data")
+                    st.write(processed_input)
 
-                    # 6. Apply PCA transformation using stored PCA
+                    # 6. Apply PCA transformation
                     input_pca = st.session_state['pca'].transform(processed_input)
                     
                     # Make prediction
@@ -621,7 +722,9 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                     
                 except Exception as e:
                     st.error(f"Error in prediction: {str(e)}")
-                    st.write("Please ensure all required fields are filled correctly.")
+                    st.write("Debug information:")
+                    st.write("Available columns:", processed_input.columns.tolist())
+                    st.write("Required columns for model:", st.session_state['pca'].n_features_in_)
         
         except Exception as e:
             st.error(f"Error setting up prediction form: {str(e)}")
