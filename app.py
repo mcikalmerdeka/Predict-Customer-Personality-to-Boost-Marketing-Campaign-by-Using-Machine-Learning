@@ -21,6 +21,8 @@ from preprocessing import (
     feature_scaling
 )
 
+from cluster_interpretations import get_cluster_interpretations
+
 # Page config
 st.set_page_config(page_title="Customer Segmentation App", layout="wide")
 st.title("Customer Segmentation Analysis")
@@ -237,6 +239,10 @@ if data is not None:
                 st.success("Date conversion completed successfully!")
                 st.write("After Date Conversion:")
                 st.write(processed_data.head(3))
+
+                # Store the date converted processed data in session state
+                date_converted_data = processed_data.copy()
+                st.session_state['date_converted_data'] = date_converted_data
                 
                 # 2. Impute missing values
                 status_text.markdown("**Step 2/7:** Imputing missing values...")
@@ -246,6 +252,10 @@ if data is not None:
                 st.success("Missing value imputation completed successfully!")
                 st.write("After Missing Value Imputation:")
                 st.write(processed_data.head(3))
+
+                # Store the imputed processed data in session state
+                imputed_processed_data = processed_data.copy()
+                st.session_state['imputed_processed_data'] = imputed_processed_data
                 
                 # 3. Handle outliers
                 status_text.markdown("**Step 3/7:** Handling outliers...")
@@ -255,16 +265,23 @@ if data is not None:
                 st.success("Outlier handling completed successfully!")
                 st.write("After Outlier Handling:")
                 st.write(processed_data.head(3))
+
+                # Store the outlier handled processed data in session state
+                outlier_handled_processed_data = processed_data.copy()
+                st.session_state['outlier_handled_processed_data'] = outlier_handled_processed_data
                 
                 # 4. Feature engineering
                 status_text.markdown("**Step 4/7:** Performing feature engineering...")
                 if do_feature_engineering:
                     feature_engineering(processed_data, middle_age_threshold, senior_age_threshold)
-                    original_processed_data = processed_data.copy()
                 progress_bar.progress(56)
                 st.success("Feature engineering completed successfully!")
                 st.write("After Feature Engineering:")
                 st.write(processed_data.head(3))
+
+                # Store the feature engineered processed data in session state
+                feature_engineered_processed_data = processed_data.copy()
+                st.session_state['feature_engineered_processed_data'] = feature_engineered_processed_data
                 
                 # 5. Categorical encoding
                 status_text.markdown("**Step 5/7:** Encoding categorical features...")
@@ -272,12 +289,15 @@ if data is not None:
                     # Use processed_data for encoding
                     st.write("Columns to encode:", columns_to_encode)
                     # st.write("Available columns before encoding:", processed_data.columns.tolist())
-                    encoded_data = feature_encoding(processed_data, columns_to_encode)
-                    processed_data = encoded_data.copy()
+                    processed_data = feature_encoding(processed_data, columns_to_encode)
                 progress_bar.progress(70)
                 st.success("Categorical encoding completed successfully!")
                 st.write("After Categorical Encoding:")
                 st.write(processed_data.head(3))
+
+                # Store the encoded processed data in session state
+                encoded_processed_data = processed_data.copy()
+                st.session_state['encoded_processed_data'] = encoded_processed_data
                 
                 # 6. Drop columns
                 status_text.markdown("**Step 6/7:** Dropping selected columns...")
@@ -287,6 +307,10 @@ if data is not None:
                 st.success("Column dropping completed successfully!")
                 st.write("After Dropping Columns:")
                 st.write(processed_data.head(3))
+
+                # Store the dropped columns processed data in session state
+                dropped_columns_processed_data = processed_data.copy()
+                st.session_state['dropped_columns_processed_data'] = dropped_columns_processed_data
                 
                 # 7. Feature scaling
                 status_text.markdown("**Step 7/7:** Scaling features...")
@@ -296,7 +320,10 @@ if data is not None:
                 st.write("After Feature Scaling:")
                 st.write(processed_data.head(3))
 
-                # Store scalers in session state
+                # Store the scaled processed data and original data in session state
+                scaled_processed_data = processed_data.copy()
+                st.session_state['scaled_processed_data'] = scaled_processed_data
+                st.session_state['original_processed_data'] = processed_data.copy()
                 st.session_state['scalers'] = scalers
 
                 # 8. Transform data using PCA
@@ -308,7 +335,7 @@ if data is not None:
                 st.subheader("Final Preprocessed Data After PCA")
                 st.write(processed_data_pca.head(3))
 
-                # Store the processed data in session state
+                # Store the PCA transformed processed data in session state
                 st.session_state['processed_data_pca'] = processed_data_pca
 
                 # Store preprocessing parameters in session state
@@ -321,9 +348,9 @@ if data is not None:
                     'columns_to_drop': columns_to_drop,
                     # Store the unique categories for each categorical column
                     'categorical_mappings': {
-                        col: original_processed_data[col].unique().tolist() 
+                        col: st.session_state['feature_engineered_processed_data'][col].unique().tolist() 
                         for col in columns_to_encode 
-                        if col in original_processed_data.columns
+                        if col in st.session_state['feature_engineered_processed_data'].columns
                     },
                     # Store the scaling parameters (mean and std) for numerical columns
                     'scaling_params': {
@@ -335,13 +362,13 @@ if data is not None:
                 # Store the PCA and model
                 st.session_state['pca'] = pca
                 st.session_state['model'] = model
-                st.session_state['original_processed_data'] = original_processed_data
                 
                 # Fit the model here
                 model.fit(processed_data_pca.values)
                 
-                # Store clusters in session state
-                st.session_state['clusters'] = model.labels_
+                # Store clusters in session state BEFORE using them
+                clusters = model.labels_
+                st.session_state['clusters'] = clusters
 
                 # Add completion message and separator
                 st.markdown("---")
@@ -364,12 +391,12 @@ if data is not None:
                 status_text.markdown(f"❌ **Error occurred during preprocessing:**\n\n{str(e)}")
                 st.error(f"An error occurred during preprocessing: {str(e)}")
         
-    # Cluster Section - Only show if preprocessing has been done
-    if 'processed_data_pca' in st.session_state:
+    # Cluster Section - Only show if preprocessing has been done AND clusters exist
+    if 'processed_data_pca' in st.session_state and 'clusters' in st.session_state:
         st.header("Cluster Section")
         
         processed_data_pca = st.session_state['processed_data_pca']
-        original_processed_data = st.session_state['original_processed_data']
+        original_processed_data = st.session_state['feature_engineered_processed_data']
         
         # Assign the cluster to our original dataframe and scaled dataframe
         processed_data_pca['Clusters'] = st.session_state['clusters']
@@ -473,6 +500,38 @@ if data is not None:
         except Exception as e:
             st.error(f"Error in statistical summary: {str(e)}")
             st.write("Available columns in DataFrame:", original_processed_data[summary_features].columns.tolist())
+
+        if 'clusters' in st.session_state:
+            st.markdown("---")
+            st.header("Cluster Analysis and Recommendations")
+            
+            interpretations = get_cluster_interpretations()
+            
+            # Create tabs for different aspects of the interpretation
+            tab1, tab2 = st.tabs(["Cluster Details", "Business Recommendations"])
+            
+            with tab1:
+                # Display cluster interpretations
+                for cluster_id, cluster_info in interpretations["clusters"].items():
+                    with st.expander(f"Cluster {cluster_id}: {cluster_info['name']} ({cluster_info['percentage']})"):
+                        st.markdown("### Description")
+                        st.markdown(cluster_info['description'])
+            
+            with tab2:
+                st.subheader("Business Recommendations")
+                
+                # Display cluster-specific recommendations
+                for cluster_id, cluster_info in interpretations["clusters"].items():
+                    with st.expander(f"Cluster {cluster_id}: {cluster_info['name']} ({cluster_info['percentage']})"):
+                        for rec_title, rec_desc in cluster_info['recommendations'].items():
+                            st.markdown(f"**{rec_title}**")
+                            st.markdown(f"<br>{rec_desc}", unsafe_allow_html=True)
+                
+                # Display cross-cluster initiatives
+                with st.expander("Cross-Cluster Initiatives"):
+                    for initiative_title, initiative_desc in interpretations["cross_cluster_initiatives"].items():
+                        st.markdown(f"**{initiative_title}**")
+                        st.markdown(f"<br>{initiative_desc}", unsafe_allow_html=True)
 
 ## Predict New Customer Segment Section
 if 'pca' in st.session_state:  # Only show prediction section if preprocessing is done
@@ -613,7 +672,7 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                         purchase_cols = ['NumDealsPurchases', 'NumWebPurchases', 'NumCatalogPurchases', 'NumStorePurchases']
                         processed_input['Total_Purchases'] = processed_input[purchase_cols].sum(axis=1).astype('int64')
                         
-                        # Conversion Rate
+                        # Conversion Rate (CVR)
                         processed_input['CVR'] = np.round(processed_input['Total_Purchases'] / processed_input['NumWebVisitsMonth'], 2)
                         processed_input['CVR'].fillna(0, inplace=True)
                         processed_input['CVR'].replace([np.inf, -np.inf], 0, inplace=True)
@@ -635,97 +694,159 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                             age_group_map = {group: idx for idx, group in enumerate(age_group_order)}
                             processed_input['Age_Group'] = processed_input['Age_Group'].map(age_group_map)
 
-                        # Handle one-hot encoding for Marital_Status with drop_first
+                        # Handle one-hot encoding for Marital_Status with expected dummy columns
                         if 'Marital_Status' in processed_input.columns:
-                            marital_dummies = pd.get_dummies(processed_input['Marital_Status'], prefix='Marital_Status')
-                            # Ensure all expected dummy columns are present
-                            expected_marital_status = ['Marital_Status_Cerai', 'Marital_Status_Duda', 'Marital_Status_Janda', 
-                                                       'Marital_Status_Lajang', 'Marital_Status_Menikah']
-                            for column in expected_marital_status:
-                                if column not in marital_dummies.columns:
-                                    marital_dummies[column] = 0
+                            marital_dummies = pd.get_dummies(processed_input['Marital_Status'], prefix='Marital_Status', drop_first=True)
+                            
                             # Drop original column and add encoded columns
-                            processed_input = processed_input.drop(columns=['Marital_Status'])
-                            processed_input = pd.concat([processed_input, marital_dummies[expected_marital_status]], axis=1)
+                            processed_input = processed_input.drop(columns=['Marital_Status'], errors='ignore')
+                            processed_input = pd.concat([processed_input, marital_dummies], axis=1)
 
-                        # Ensure all expected columns are present
-                        expected_columns = st.session_state['original_processed_data'].columns
+                        # Ensure all expected columns are present before moving to scaling
+                        expected_columns = st.session_state['dropped_columns_processed_data'].columns.tolist()
                         for col in expected_columns:
                             if col not in processed_input.columns:
                                 processed_input[col] = 0
 
-                        # Reorder columns to match training data
+                        for col in processed_input.columns:
+                            if col not in expected_columns:
+                                processed_input.drop(columns=col, inplace=True)
+
+                        # Reorder and match columns to match training data
                         processed_input = processed_input[expected_columns]
 
                     except Exception as e:
                         st.error(f"Error in feature encoding: {str(e)}")
                         st.write("Debug information:")
                         st.write("Current columns:", processed_input.columns.tolist())
-                        st.write("Expected columns:", expected_columns.tolist())
-                    
-                    st.subheader("After Feature Encoding")
+                        st.write("Expected columns:", expected_columns)
+
+                    st.subheader("After Feature Encoding and Drop Columns")
                     st.write(processed_input)
 
-                    # 5. Feature scaling
+                    # 4. Feature scaling
                     try:
-                        # Apply log transformation and scale
+                        # Get the features that each scaler was trained on
+                        standard_features = st.session_state['scalers']['standard'].feature_names_in_.tolist()
+                        
+                        # # Debug information
+                        # st.write("Columns before scaling:", processed_input.columns.tolist())
+                        # st.write("Standard scaler features:", standard_features)
+                        
+                        # Create separate DataFrames for each scaling type
+                        standard_df = processed_input[standard_features].copy()
+                        
+                        # Apply standard scaling only to features that were in the training data
+                        processed_input[standard_features] = st.session_state['scalers']['standard'].transform(standard_df)
+                        
+                        # Log transform specific features (without scaling)
                         log_transform_features = [
                             'MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 
                             'MntSweetProducts', 'MntGoldProds', 'Total_Spending', 'CVR'
                         ]
-                        if log_transform_features:
-                            available_log_features = [col for col in log_transform_features if col in processed_input.columns]
-                            if available_log_features:
-                                for feature in available_log_features:
-                                    processed_input[feature] = np.log1p(processed_input[feature])
-                                processed_input[available_log_features] = st.session_state['scalers']['standard'].transform(processed_input[available_log_features])
-
-                        # Scale count-based features
+                        for feature in log_transform_features:
+                            if feature in processed_input.columns:
+                                processed_input[feature] = np.log1p(processed_input[feature])
+                        
+                        # MinMax scale specific features
                         count_features = [
                             'NumWebVisitsMonth', 'NumDealsPurchases', 'NumWebPurchases', 
                             'NumCatalogPurchases', 'NumStorePurchases', 'Total_Purchases'
                         ]
-                        if count_features:
-                            available_features = [col for col in count_features if col in processed_input.columns]
-                            if available_features:
-                                processed_input[available_features] = st.session_state['scalers']['minmax'].transform(processed_input[available_features])
-
-                        # Scale normally distributed features
-                        standard_features = [
-                            'Income', 'Age', 'Recency', 'Membership_Duration'
-                        ]
-                        if standard_features:
-                            available_features = [col for col in standard_features if col in processed_input.columns]
-                            if available_features:
-                                processed_input[available_features] = st.session_state['scalers']['standard'].transform(processed_input[available_features])
+                        if 'minmax' in st.session_state['scalers']:
+                            count_features_available = [f for f in count_features if f in processed_input.columns]
+                            if count_features_available:
+                                count_df = processed_input[count_features_available].copy()
+                                processed_input[count_features_available] = st.session_state['scalers']['minmax'].transform(count_df)
 
                     except Exception as e:
                         st.error(f"Error in feature scaling: {str(e)}")
-                        st.write("Debug information:")
-                        st.write("Current columns:", processed_input.columns.tolist())
+                        st.write("Available columns:", processed_input.columns.tolist())
+                        st.write("Scaler features:", st.session_state['scalers']['standard'].feature_names_in_.tolist())
 
-                    # 4. Drop unnecessary columns
-                    processed_input = processed_input.drop(columns=params['columns_to_drop'], errors='ignore')
-
-                    # Show preprocessed input
-                    st.subheader("Preprocessed Input Data")
+                    st.subheader("After Feature Scaling")
                     st.write(processed_input)
 
-                    # 6. Apply PCA transformation
-                    input_pca = st.session_state['pca'].transform(processed_input)
-                    
-                    # Make prediction
-                    cluster = st.session_state['model'].predict(input_pca)[0]
-                    
-                    # Display result
-                    st.success(f"### Predicted Customer Segment: {cluster}")
-                    
+                    # 5. Apply PCA transformation
+                    try:
+                        input_pca = st.session_state['pca'].transform(processed_input)
+                    except Exception as e:
+                        st.error(f"Error in PCA transformation: {str(e)}")
+                        st.write("Available columns:", processed_input.columns.tolist())
+
+                    st.subheader("After PCA Transformation")
+                    st.write(input_pca)
+
+                    # 6. Make prediction
+                    try:
+                        cluster = st.session_state['model'].predict(input_pca)[0]
+                        st.success(f"### Predicted Customer Segment: {cluster}")
+
+                        # Create visualization of the prediction
+                        st.subheader("Customer Segment Visualization")
+                        
+                        # Get the existing PCA data
+                        existing_data = st.session_state['processed_data_pca'].copy()
+                        existing_clusters = st.session_state['clusters']
+                        
+                        # Create figure
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        
+                        # Plot existing clusters
+                        scatter = sns.scatterplot(
+                            data=existing_data,
+                            x='PC 1',
+                            y='PC 2',
+                            hue=existing_clusters,
+                            palette='deep',
+                            alpha=0.6,
+                            s=100,
+                            legend='brief'
+                        )
+                        
+                        # Plot the new customer point
+                        plt.scatter(
+                            input_pca[0][0],  # First PC
+                            input_pca[0][1],  # Second PC
+                            c='red',          # Red color for new point
+                            marker='*',       # Star marker
+                            s=300,            # Larger size
+                            label='New Customer'
+                        )
+                        
+                        # Improve plot styling
+                        plt.title('Customer Segment Prediction Visualization', pad=20, fontsize=14)
+                        plt.xlabel('First Principal Component', fontsize=12)
+                        plt.ylabel('Second Principal Component', fontsize=12)
+                        
+                        # Add legend
+                        handles, labels = plt.gca().get_legend_handles_labels()
+                        plt.legend(
+                            handles=handles, 
+                            labels=['Cluster ' + str(i) for i in range(len(set(existing_clusters)))] + ['New Customer'],
+                            title='Segments',
+                            title_fontsize=12,
+                            bbox_to_anchor=(1.05, 1),
+                            loc='upper left'
+                        )
+                        
+                        # Display the plot
+                        st.pyplot(fig, use_container_width=True)
+                        
+                        # Add explanation
+                        st.markdown("""
+                        **Understanding the Visualization:**
+                        - Colored dots represent existing customer segments
+                        - Red star (★) shows where the new customer fits
+                        - Closer points indicate similar characteristics
+                        - Position relative to clusters shows segment alignment
+                        """)
+
+                    except Exception as e:
+                        st.error(f"An error occurred during prediction visualization: {str(e)}")
                 except Exception as e:
-                    st.error(f"Error in prediction: {str(e)}")
-                    st.write("Debug information:")
-                    st.write("Available columns:", processed_input.columns.tolist())
-                    st.write("Required columns for model:", st.session_state['pca'].n_features_in_)
-        
+                    st.error(f"An error occurred during prediction: {str(e)}")      
+
         except Exception as e:
             st.error(f"Error setting up prediction form: {str(e)}")
     else:

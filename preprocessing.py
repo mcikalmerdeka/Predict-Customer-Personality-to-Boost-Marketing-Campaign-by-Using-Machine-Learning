@@ -127,198 +127,120 @@ def feature_engineering(data, middle_age_threshold=40, senior_age_threshold=60):
 
 
 ## Feature encoding function
-def feature_encoding(data, columns_to_encode):
+def feature_encoding(data, columns_to_encode, training_mode=True):
     """
     Encode categorical features flexibly based on input columns
     """
-    # Create a copy of the input DataFrame
     df_preprocessed = data.copy()
     
-    if not columns_to_encode:  # If no columns to encode, return original data
+    if not columns_to_encode:
         return df_preprocessed
     
     try:
-        # Debug print
-        print("Available columns:", df_preprocessed.columns.tolist())
-        print("Columns to encode:", columns_to_encode)
-        
-        # Validate columns exist in DataFrame
-        missing_columns = [col for col in columns_to_encode if col not in df_preprocessed.columns]
-        if missing_columns:
-            raise ValueError(f"Columns {missing_columns} not found in DataFrame")
-        
-        # Store original data types
-        original_dtypes = df_preprocessed.dtypes
-        
-        # Identify datetime columns
-        datetime_columns = df_preprocessed.select_dtypes(include=['datetime64']).columns.tolist()
-        
-        # Store datetime data separately
-        datetime_data = df_preprocessed[datetime_columns].copy() if datetime_columns else None
-        
-        # Create transformers list
-        transformers = []
-        columns_to_encode_copy = columns_to_encode.copy()  # Create a copy to modify
-        
-        # Special handling for known columns
-        if 'Education' in columns_to_encode_copy:
-            if 'Education' in df_preprocessed.columns:  # Verify column exists
-                degree_order = ['SMA', 'D3', 'S1', 'S2', 'S3']
-                transformers.append(
-                    ('education', OrdinalEncoder(categories=[degree_order], dtype=np.float64), ['Education'])
-                )
-                columns_to_encode_copy.remove('Education')
-        
-        if 'Age_Group' in columns_to_encode_copy:
-            if 'Age_Group' in df_preprocessed.columns:  # Verify column exists
-                age_group_order = ['Young Adult', 'Middle Adult', 'Senior Adult']
-                transformers.append(
-                    ('age_group', OrdinalEncoder(categories=[age_group_order], dtype=np.float64), ['Age_Group'])
-                )
-                columns_to_encode_copy.remove('Age_Group')
-        
-        # Handle Marital_Status specifically
-        if 'Marital_Status' in columns_to_encode_copy:
-            if 'Marital_Status' in df_preprocessed.columns:  # Verify column exists
-                transformers.append(
-                    ('marital_status', OneHotEncoder(sparse_output=False, drop='first', dtype=np.float64), ['Marital_Status'])
-                )
-                columns_to_encode_copy.remove('Marital_Status')
-        
-        # Handle remaining categorical columns
-        remaining_columns = [col for col in columns_to_encode_copy if col in df_preprocessed.columns]
-        if remaining_columns:
-            transformers.append(
-                ('categorical', OneHotEncoder(sparse_output=False, drop='first', dtype=np.float64), remaining_columns)
+        # Handle Education if present
+        if 'Education' in columns_to_encode and 'Education' in df_preprocessed.columns:
+            degree_order = ['SMA', 'D3', 'S1', 'S2', 'S3']
+            education_map = {deg: idx for idx, deg in enumerate(degree_order)}
+            df_preprocessed['Education'] = df_preprocessed['Education'].map(education_map).astype(float)
+
+        # Handle Age_Group if present
+        if 'Age_Group' in columns_to_encode and 'Age_Group' in df_preprocessed.columns:
+            age_group_order = ['Young Adult', 'Middle Adult', 'Senior Adult']
+            age_group_map = {group: idx for idx, group in enumerate(age_group_order)}
+            df_preprocessed['Age_Group'] = df_preprocessed['Age_Group'].map(age_group_map).astype(float)
+
+        # Handle Marital_Status if present
+        if 'Marital_Status' in columns_to_encode and 'Marital_Status' in df_preprocessed.columns:
+            # Create dummy variables with all categories
+            marital_dummies = pd.get_dummies(
+                df_preprocessed['Marital_Status'], 
+                prefix='Marital_Status',
+                drop_first=training_mode  # Only drop first category during training
             )
-        
-        if not transformers:  # If no transformers were created
-            return df_preprocessed
-        
-        # Create the column transformer
-        preprocessor = ColumnTransformer(
-            transformers=transformers,
-            remainder='passthrough'
-        )
-        
-        # Get list of columns being transformed
-        columns_being_transformed = sum([cols for _, _, cols in transformers], [])
-        
-        # Get remaining columns
-        remaining_columns = [col for col in df_preprocessed.columns if col not in columns_being_transformed]
-        
-        # Debug print
-        print("Columns being transformed:", columns_being_transformed)
-        print("Remaining columns:", remaining_columns)
-        
-        # Transform the data
-        encoded_array = preprocessor.fit_transform(df_preprocessed)
-        
-        # Get feature names
-        feature_names = []
-        
-        # Add feature names for each transformer
-        for name, transformer, columns in transformers:
-            if isinstance(transformer, OrdinalEncoder):
-                feature_names.extend(columns)
-            elif isinstance(transformer, OneHotEncoder):
-                for i, col in enumerate(columns):
-                    cats = preprocessor.named_transformers_[name].categories_[i][1:]
-                    feature_names.extend([f"{col}_{cat}" for cat in cats])
-        
-        # Add remaining column names
-        feature_names.extend(remaining_columns)
-        
-        # Debug print
-        print("Feature names:", feature_names)
-        print("Encoded array shape:", encoded_array.shape)
-        
-        # Create DataFrame with encoded features
-        df_encoded = pd.DataFrame(encoded_array, columns=feature_names, index=df_preprocessed.index)
-        
-        return df_encoded
+            
+            # Drop original column and add encoded columns
+            df_preprocessed = df_preprocessed.drop(columns=['Marital_Status'])
+            df_preprocessed = pd.concat([df_preprocessed, marital_dummies], axis=1)
+
+        return df_preprocessed
         
     except Exception as e:
         print(f"Error in feature encoding: {str(e)}")
-        print(f"Problematic columns: {columns_to_encode}")
-        raise e
+        print(f"Available columns: {df_preprocessed.columns.tolist()}")
+        print(f"Columns to encode: {columns_to_encode}")
+        return df_preprocessed
 
 ## Feature scaling function
 def feature_scaling(data, scalers=None, fit=True):
     """
     Scale features using appropriate scaling methods based on their distributions.
-    
-    Parameters:
-    - data: DataFrame to scale
-    - scalers: Dictionary of pre-fitted scalers (for transform only)
-    - fit: Boolean indicating whether to fit_transform (True) or just transform (False)
-    
-    Returns:
-    - Scaled DataFrame and dictionary of scalers
     """
-    # Create copies to avoid modifying original data
     df_preprocessed = data.copy()
     
-    # Initialize or use provided scalers
+    # Define feature groups with their respective scaling methods
+    feature_groups = {
+        'log_transform': [
+            'MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 
+            'MntSweetProducts', 'MntGoldProds', 'Total_Spending', 'CVR'
+        ],
+        'count_based': [
+            'NumWebVisitsMonth', 'NumDealsPurchases', 'NumWebPurchases', 
+            'NumCatalogPurchases', 'NumStorePurchases', 'Total_Purchases'
+        ],
+        'standard': [
+            'Income', 'Age', 'Recency', 'Membership_Duration'
+        ]
+    }
+    
     if scalers is None and fit:
         scalers = {
-            'robust': RobustScaler(quantile_range=(5, 95)),
             'standard': StandardScaler(),
-            'minmax': MinMaxScaler()
+            'minmax': MinMaxScaler(),
+            'robust': RobustScaler(quantile_range=(5, 95))
         }
     elif scalers is None and not fit:
         raise ValueError("Scalers must be provided when fit=False")
-    
-    # Define feature groups
-    log_transform_features = [
-        'MntCoke', 'MntFruits', 'MntMeatProducts', 'MntFishProducts',
-        'MntSweetProducts', 'MntGoldProds', 'Total_Spending', 'CVR'
-    ]
-    
-    count_features = [
-        'NumWebVisitsMonth', 'NumDealsPurchases', 'NumWebPurchases',
-        'NumCatalogPurchases', 'NumStorePurchases', 'Total_Purchases'
-    ]
-    
-    standard_features = [
-        'Income', 'Age', 'Recency', 'Membership_Duration'
-    ]
-    
-    # Convert all numeric columns to float
-    numeric_columns = df_preprocessed.select_dtypes(include=['int64', 'float64']).columns
-    for col in numeric_columns:
-        df_preprocessed[col] = df_preprocessed[col].astype(float)
-    
-    # Apply log transformation and scale
-    available_log_features = [col for col in log_transform_features if col in df_preprocessed.columns]
-    if available_log_features:
-        print(f"Processing log transform features: {available_log_features}")
-        df_preprocessed[available_log_features] = df_preprocessed[available_log_features].astype(float)
-        for feature in available_log_features:
-            df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
-        if fit:
-            df_preprocessed[available_log_features] = scalers['standard'].fit_transform(df_preprocessed[available_log_features])
-        else:
-            df_preprocessed[available_log_features] = scalers['standard'].transform(df_preprocessed[available_log_features])
 
-    # Scale count-based features
-    available_count_features = [col for col in count_features if col in df_preprocessed.columns]
-    if available_count_features:
-        print(f"Processing count features: {available_count_features}")
-        df_preprocessed[available_count_features] = df_preprocessed[available_count_features].astype(float)
-        if fit:
-            df_preprocessed[available_count_features] = scalers['minmax'].fit_transform(df_preprocessed[available_count_features])
-        else:
-            df_preprocessed[available_count_features] = scalers['minmax'].transform(df_preprocessed[available_count_features])
+    try:
+        # Process each feature group
+        for group_name, features in feature_groups.items():
+            # Get available features that exist in the dataframe
+            available_features = [col for col in features if col in df_preprocessed.columns]
+            
+            if not available_features:
+                continue
+                
+            # Convert to float
+            df_preprocessed[available_features] = df_preprocessed[available_features].astype(float)
+            
+            # Apply log transformation for the log_transform group
+            if group_name == 'log_transform':
+                for feature in available_features:
+                    df_preprocessed[feature] = np.log1p(df_preprocessed[feature])
+                
+                if fit:
+                    df_preprocessed[available_features] = scalers['standard'].fit_transform(df_preprocessed[available_features])
+                else:
+                    df_preprocessed[available_features] = scalers['standard'].transform(df_preprocessed[available_features])
+                    
+            # Scale count-based features
+            elif group_name == 'count_based':
+                if fit:
+                    df_preprocessed[available_features] = scalers['minmax'].fit_transform(df_preprocessed[available_features])
+                else:
+                    df_preprocessed[available_features] = scalers['minmax'].transform(df_preprocessed[available_features])
+                    
+            # Scale normally distributed features
+            elif group_name == 'standard':
+                if fit:
+                    df_preprocessed[available_features] = scalers['standard'].fit_transform(df_preprocessed[available_features])
+                else:
+                    df_preprocessed[available_features] = scalers['standard'].transform(df_preprocessed[available_features])
 
-    # Scale normally distributed features
-    available_standard_features = [col for col in standard_features if col in df_preprocessed.columns]
-    if available_standard_features:
-        print(f"Processing standard features: {available_standard_features}")
-        df_preprocessed[available_standard_features] = df_preprocessed[available_standard_features].astype(float)
-        if fit:
-            df_preprocessed[available_standard_features] = scalers['standard'].fit_transform(df_preprocessed[available_standard_features])
-        else:
-            df_preprocessed[available_standard_features] = scalers['standard'].transform(df_preprocessed[available_standard_features])
-
-    return df_preprocessed, scalers
+        return df_preprocessed, scalers
+        
+    except Exception as e:
+        print("Feature scaling error details:")
+        print(f"Available columns: {df_preprocessed.columns.tolist()}")
+        print(f"Attempted to scale: {[f for group in feature_groups.values() for f in group]}")
+        raise Exception(f"Scaling error: {str(e)}\n\nAvailable columns: {df_preprocessed.columns.tolist()}")
