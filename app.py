@@ -22,6 +22,7 @@ from preprocessing import (
 )
 
 from cluster_interpretations import get_cluster_interpretations
+from feature_definitions import get_feature_definitions
 
 # Page config
 st.set_page_config(page_title="Customer Segmentation App", layout="wide")
@@ -89,6 +90,38 @@ if input_type == 'File Upload Local':
             st.subheader("Data Information")
             st.write(check_data_information(file_data, file_data.columns))
             
+            # Add Data Dictionary section here
+            with st.expander("📚 Data Dictionary"):
+                st.markdown("### Feature Information")
+                
+                # Create DataFrame from feature definitions
+                definitions = get_feature_definitions()
+                feature_df = pd.DataFrame.from_dict(definitions, orient='index')
+                
+                # Reorder columns and reset index to show feature names as a column
+                feature_df = feature_df.reset_index().rename(columns={'index': 'Feature Name'})
+                feature_df = feature_df[['Feature Name', 'description', 'data_type', 'specific_type']]
+                
+                # Rename columns for display
+                feature_df.columns = ['Feature Name', 'Description', 'Data Type', 'Specific Type']
+                
+                # Display as a styled table
+                st.dataframe(
+                    feature_df.style.set_properties(**{
+                        'background-color': 'white',
+                        'color': 'black',
+                        'border-color': 'lightgrey'
+                    })
+                )
+                
+                st.markdown("""
+                **Note:**
+                - Categorical (Nominal): Categories without any natural order
+                - Categorical (Ordinal): Categories with a natural order
+                - Numerical (Discrete): Whole numbers
+                - Numerical (Continuous): Any numerical value
+                """)
+
             # Create a copy for preprocessing
             data = file_data.copy()
 
@@ -109,7 +142,39 @@ else:
         # Display data information
         st.subheader("Data Information")
         st.write(check_data_information(file_data, file_data.columns))
+        
+        # Add Data Dictionary section here
+        with st.expander("📚 Data Dictionary"):
+            st.markdown("### Feature Information")
             
+            # Create DataFrame from feature definitions
+            definitions = get_feature_definitions()
+            feature_df = pd.DataFrame.from_dict(definitions, orient='index')
+            
+            # Reorder columns and reset index to show feature names as a column
+            feature_df = feature_df.reset_index().rename(columns={'index': 'Feature Name'})
+            feature_df = feature_df[['Feature Name', 'description', 'data_type', 'specific_type']]
+            
+            # Rename columns for display
+            feature_df.columns = ['Feature Name', 'Description', 'Data Type', 'Specific Type']
+            
+            # Display as a styled table
+            st.dataframe(
+                feature_df.style.set_properties(**{
+                    'background-color': 'white',
+                    'color': 'black',
+                    'border-color': 'lightgrey'
+                })
+            )
+            
+            st.markdown("""
+            **Note:**
+            - Categorical (Nominal): Categories without any natural order
+            - Categorical (Ordinal): Categories with a natural order
+            - Numerical (Discrete): Whole numbers
+            - Numerical (Continuous): Any numerical value
+            """)
+
         # Create a copy for preprocessing
         data = file_data.copy()
 
@@ -532,6 +597,8 @@ if data is not None:
                     for initiative_title, initiative_desc in interpretations["cross_cluster_initiatives"].items():
                         st.markdown(f"**{initiative_title}**")
                         st.markdown(f"<br>{initiative_desc}", unsafe_allow_html=True)
+
+
 
 ## Predict New Customer Segment Section
 if 'pca' in st.session_state:  # Only show prediction section if preprocessing is done
