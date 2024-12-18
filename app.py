@@ -29,33 +29,67 @@ st.set_page_config(page_title="Customer Segmentation App", layout="wide")
 st.title("Customer Segmentation Analysis")
 
 # Add information about the app
-with st.expander("**Read Instruction First: About this app**"):
+with st.expander("**Read Instructions First: About This App**"):
     st.write("""
-    - This app performs customer segmentation using K-means clustering. 
-    - The dataset used in this app is a marketing campaign dataset from a company that sells products to customers.
-    - The goal of this app is to help the company to understand their customers better and to develop more effective marketing strategies.
-    
-    - To use this app, you can either upload your own dataset or use the source data directly.
-        - If you choose to upload your own dataset, please ensure that your dataset has the same structure as the source data.
-        - If you choose to use the source data directly, you can select the 'Use Source Data Directly' option and it will load the source data from gdrive.
-    
-    - After selecting the input type, you can follow the preprocessing steps in the sidebar on the left to preprocess your data.
-    - You may see some default values for the preprocessing steps, you can keep it or change it but as for now, it is set to the default values.
-                      
-    - The preprocessing steps are:
-        1. Data type conversion
-        2. Missing values imputation
-        3. Outlier handling
-        4. Feature engineering (including Age Group categorization)
-        5. Feature encoding
-        6. Column dropping
-        7. Feature scaling
-        8. PCA transformation
-    
-    - This app will then perform clustering using K-means clustering and visualize the results using PCA and the statistical summary of each cluster.
-    
-    - Also this app have feature to predict the customer segment for new data based on the trained model.
-    - To do so, you can input the customer data and the app will predict the customer segment for the new data.
+    ## 🎯 Customer Segmentation Application
+
+    ### 📌 Purpose
+    - This app performs customer segmentation using K-means clustering
+    - Utilizes a marketing campaign dataset from a product-selling company
+    - Goal: Help the company understand customers and develop more effective marketing strategies
+
+    ### 🔍 How to Use the App
+
+    #### Data Input Options
+    - Two primary ways to load data:
+        1. Upload Custom Dataset
+            - Ensure your dataset matches the source data structure
+        2. Use Source Data Directly
+            - Select 'Use Source Data Directly' option
+            - Automatically loads data from Google Drive
+
+    ### 🔧 Preprocessing Workflow
+    The application follows a comprehensive data preprocessing pipeline:
+
+    1. **Data Type Conversion**
+        - Standardize and validate data types
+
+    2. **Missing Values Imputation**
+        - Handle and fill missing data points using appropriate strategies
+
+    3. **Outlier Handling**
+        - Identify and manage extreme or anomalous data points
+
+    4. **Feature Engineering**
+        - Create derived features
+        - Categorize variables (e.g., Age Group categorization)
+
+    5. **Feature Encoding**
+        - Convert categorical variables to numerical representations
+
+    6. **Column Selection**
+        - Retain most relevant features for analysis
+
+    7. **Feature Scaling**
+        - Normalize data to ensure balanced analysis
+
+    8. **Dimensionality Reduction**
+        - Apply PCA (Principal Component Analysis) for optimization
+
+    ### 🧩 Clustering and Visualization
+    - Perform K-means clustering
+    - Visualize results using PCA
+    - Generate statistical summary for each cluster
+
+    ### 🔮 Prediction Capabilities
+    - Predict customer segments for new data
+    - Input customer data
+    - Receive instant segment classification based on trained model
+
+    ### ⚠️ Important Notes
+    - Default preprocessing values are pre-configured
+    - Users can modify settings as needed
+    - Predictions are based on machine learning model insights
     """)
 
 # Load pre-trained model
