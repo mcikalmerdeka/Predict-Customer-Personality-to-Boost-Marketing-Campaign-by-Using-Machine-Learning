@@ -164,8 +164,11 @@ if input_type == 'File Upload Local':
 else:
     st.write("You can use the source data directly by selecting the 'Use Source Data Directly' option.")
     try:
-        # Link to the file
-        file_url = "https://drive.google.com/uc?id=17JjPC-T_QSACwG29or48HpeJATbCPaDg"
+        # # Link to the file (using gdrive link)
+        # file_url = "https://drive.google.com/uc?id=17JjPC-T_QSACwG29or48HpeJATbCPaDg"
+
+        # Link to the file (using github link)
+        file_url = "https://raw.githubusercontent.com/mcikalmerdeka/Predict-Customer-Personality-to-Boost-Marketing-Campaign-by-Using-Machine-Learning/main/marketing_campaign_data.csv"
 
         # Load the CSV into a DataFrame
         file_data = pd.read_csv(file_url, index_col=0)
@@ -670,10 +673,10 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                             col_mean = file_data[column].mean()
                             
                             prediction_input[column] = st.number_input(
-                                f'Enter {column}',
-                                min_value=float(col_min),
-                                max_value=float(col_max),
-                                value=float(col_mean),
+                                f"Enter {column}",
+                                min_value=float(col_min) if not pd.isna(col_min) else 0.0,
+                                max_value=float(col_max) if not pd.isna(col_max) else None,
+                                value=float(col_mean) if not pd.isna(col_mean) else 0.0,
                                 step=0.1
                             )
                         
@@ -699,10 +702,10 @@ if 'pca' in st.session_state:  # Only show prediction section if preprocessing i
                             col_mean = file_data[column].mean()
                             
                             prediction_input[column] = st.number_input(
-                                f'Enter {column}',
-                                min_value=float(col_min),
-                                max_value=float(col_max),
-                                value=float(col_mean),
+                                f"Enter {column}",
+                                min_value=float(col_min) if not pd.isna(col_min) else 0.0,
+                                max_value=float(col_max) if not pd.isna(col_max) else None,
+                                value=float(col_mean) if not pd.isna(col_mean) else 0.0,
                                 step=0.1
                             )
                         
