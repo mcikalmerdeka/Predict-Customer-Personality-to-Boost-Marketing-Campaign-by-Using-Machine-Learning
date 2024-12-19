@@ -53,8 +53,23 @@ def change_data_type(data, column, target_type, format=None):
     return data
 
 ## Impute missing values function
-def impute_missing_values(data, columns):
-    return data[columns].fillna(data[columns].median())
+def handle_missing_values(data, columns, strategy='fill', imputation_method='median'):
+    if strategy == 'fill':
+        if imputation_method == 'median':
+            return data[columns].fillna(data[columns].median())
+        elif imputation_method == 'mean':
+            return data[columns].fillna(data[columns].mean())
+        elif imputation_method == 'mode':
+            return data[columns].fillna(data[columns].mode().iloc[0])
+        elif imputation_method == 'ffill':
+            return data[columns].fillna(method='ffill')
+        elif imputation_method == 'bfill':
+            return data[columns].fillna(method='bfill')
+        else:
+            return data[columns].fillna(data[columns].median())
+
+    elif strategy == 'remove':
+        return data.dropna(subset=columns)
 
 ## Drop columns function
 def drop_columns(data, columns):
