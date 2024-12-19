@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import scipy.stats as stats
 
 # Feature encoding libraries
 from sklearn.compose import ColumnTransformer
@@ -76,20 +77,39 @@ def drop_columns(data, columns):
     return data.drop(columns=columns)
 
 ## Handle outliers function
-def filter_outliers(data, col_series):
-    # Boolean mask for rows without outliers
+def filter_outliers(data, col_series, method='iqr', threshold=3):
+    # Return the original data if the column series is empty
+    if col_series is None:
+        return data
+    
+    # Validate the method parameter
+    if method.lower() not in ['iqr', 'zscore']:
+        raise ValueError("Method must be either 'iqr' or 'zscore'")
+    
+    # Start with all rows marked as True (non-outliers)
     filtered_entries = np.array([True] * len(data))
     
+    # Loop through each column
     for col in col_series:
-        Q1 = data[col].quantile(0.25)  
-        Q3 = data[col].quantile(0.75)  
-        IQR = Q3 - Q1  
-        lower_bound = Q1 - (IQR * 1.5)  
-        upper_bound = Q3 + (IQR * 1.5)  
+        if method.lower() == 'iqr':
+            # IQR method
+            Q1 = data[col].quantile(0.25)  # First quartile (25th percentile)
+            Q3 = data[col].quantile(0.75)  # Third quartile (75th percentile)
+            IQR = Q3 - Q1  # Interquartile range
+            lower_bound = Q1 - (IQR * 1.5)  # Lower bound for outliers
+            upper_bound = Q3 + (IQR * 1.5)  # Upper bound for outliers
 
-        filter_outlier = ((data[col] >= lower_bound) & (data[col] <= upper_bound))
+            # Create a filter that identifies non-outliers for the current column
+            filter_outlier = ((data[col] >= lower_bound) & (data[col] <= upper_bound))
+            
+        elif method.lower() == 'zscore':  # zscore method
+            # Calculate Z-Scores and create filter
+            z_scores = np.abs(stats.zscore(data[col]))
 
-        # Update the mask for filtering rows within bounds for the column
+            # Create a filter that identifies non-outliers
+            filter_outlier = (z_scores < threshold)
+        
+        # Update the filter to exclude rows that have outliers in the current column
         filtered_entries = filtered_entries & filter_outlier
     
     return data[filtered_entries]
