@@ -28,6 +28,15 @@ from feature_definitions import get_feature_definitions
 st.set_page_config(page_title="Customer Segmentation App", layout="wide")
 st.title("Customer Segmentation Analysis")
 
+# Author Information
+st.markdown("""
+#### Author
+Developed by : Muhammad Cikal Merdeka | Data Analyst/Data Scientist
+
+- [GitHub Profile](https://github.com/mcikalmerdeka)  
+- [LinkedIn Profile](https://www.linkedin.com/in/mcikalmerdeka)
+""")
+
 # Add information about the app
 with st.expander("**Read Instructions First: About This App**"):
     st.write("""
