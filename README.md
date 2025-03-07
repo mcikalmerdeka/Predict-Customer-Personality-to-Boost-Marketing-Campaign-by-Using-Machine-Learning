@@ -2,10 +2,10 @@
 
 This project originally came from an assignment after a data science bootcamp program that I attended. Which is why you can see there are several folders of **`tasks`** that contain instructions about business questions that must be answered based on data and my presentation of them. I then developed the project further by adding new knowledge that I learned from work experience, online courses, and other sources.
 
-- The analysis folder contains the main ipynb files that i used for the EDA, data preprocessing, train and save ML model, and answering business questions and formulating recommendations.
-- The data folder contains raw and processed data used in the project.
-- The models folder contains joblib files of trained model.
-- The scripts folder contains the scripts necessary to run the streamlit application.
+- The `analysis` folder contains the main ipynb files that i used for the EDA, data preprocessing, train and save ML model, and answering business questions and formulating recommendations.
+- The `data` folder contains raw and processed data used in the project.
+- The `models` folder contains joblib files of trained model.
+- The `scripts` folder contains the scripts necessary to run the streamlit application.
 
 ## 📌 Project Overview:
 
@@ -31,7 +31,7 @@ This project aims to enhance marketing campaign effectiveness through customer s
 
 6. Customers who engage more frequently (website visits, purchases) are more valuable to the company.
 
-## 📌I also created a streamlit app from this project that can be tried with these commands:
+## 📌The streamlit app from this project that can be tried with these commands:
 
 ```python
 cd scripts
