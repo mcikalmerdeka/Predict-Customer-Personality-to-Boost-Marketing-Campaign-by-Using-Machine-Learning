@@ -1,6 +1,6 @@
 # Predict Customer Personality to Boost Marketing Campaign by Using Machine Learning
 
-This project originally came from an assignment after a data science bootcamp program that I attended. Which is why you can see there are several folders of tasks that contain instructions about business questions that must be answered based on data and my presentation of them. I then developed the project further by adding new knowledge that I learned from work experience, online courses, and other sources.
+This project originally came from an assignment after a data science bootcamp program that I attended. Which is why you can see there are several folders of **`tasks`** that contain instructions about business questions that must be answered based on data and my presentation of them. I then developed the project further by adding new knowledge that I learned from work experience, online courses, and other sources.
 
 ## 📌 Project Overview:
 
