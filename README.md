@@ -2,6 +2,11 @@
 
 This project originally came from an assignment after a data science bootcamp program that I attended. Which is why you can see there are several folders of **`tasks`** that contain instructions about business questions that must be answered based on data and my presentation of them. I then developed the project further by adding new knowledge that I learned from work experience, online courses, and other sources.
 
+- The analysis folder contains the main ipynb files that i used for the EDA, data preprocessing, train and save ML model, and answering business questions and formulating recommendations.
+- The data folder contains raw and processed data used in the project.
+- The models folder contains joblib files of trained model.
+- The scripts folder contains the scripts necessary to run the streamlit application.
+
 ## 📌 Project Overview:
 
 This project aims to enhance marketing campaign effectiveness through customer segmentation and personality analysis. By analyzing customer data including demographics, spending behavior, and engagement metrics, the company seek to develop targeted marketing strategies that improve campaign performance and customer satisfaction. Our task here as a data analyst work with cross-functional teams of marketing and sales department, where the Marketing team will use your segmentation to optimize campaigns and customer communication, while the Sales team can leverage your insights to personalize their approach to different customer types.
