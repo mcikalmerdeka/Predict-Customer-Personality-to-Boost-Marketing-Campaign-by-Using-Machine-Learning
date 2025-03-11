@@ -33,6 +33,12 @@ This project aims to enhance marketing campaign effectiveness through customer s
 
 ## 📌The streamlit app from this project that can be tried with these commands:
 
+- Clone repo
+```python
+git clone https://github.com/mcikalmerdeka/Predict-Customer-Personality-to-Boost-Marketing-Campaign-by-Using-Machine-Learning.git
+```
+
+- Navigate to streamlit file
 ```python
 cd scripts
 streamlit run app.py
