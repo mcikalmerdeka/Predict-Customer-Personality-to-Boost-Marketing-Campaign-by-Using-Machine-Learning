@@ -1,5 +1,7 @@
 # Predict Customer Personality to Boost Marketing Campaign by Using Machine Learning
 
+![Project Header](https://raw.githubusercontent.com/mcikalmerdeka/Predict-Customer-Personality-to-Boost-Marketing-Campaign-by-Using-Machine-Learning/refs/heads/main/Assets/Project%20Header.jpg)
+
 This project originally came from an assignment after a data science bootcamp program that I attended. Which is why you can see there are several folders of **`tasks`** that contain instructions about business questions that must be answered based on data and my presentation of them. I then developed the project further by adding new knowledge that I learned from work experience, online courses, and other sources.
 
 - The `analysis` folder contains the main ipynb files that i used for the EDA, data preprocessing, train and save ML model, and answering business questions and formulating recommendations.
